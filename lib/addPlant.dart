@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
@@ -5,8 +6,7 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:universal_ble/universal_ble.dart';
+import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:vase/common/toast.dart';
 
 class Addplant extends StatefulWidget {
@@ -20,37 +20,42 @@ class _AddplantState extends State<Addplant> {
   String name = '';
   String description = '';
   String plantId = '';
-  dynamic devices = [];
+  List<BluetoothDevice> _systemDevices = [];
+  List<ScanResult> _scanResults = [];
+  List<BluetoothService> _services = [];
+  late StreamSubscription<List<ScanResult>> _scanResultsSubscription;
+  late StreamSubscription<bool> _isScanningSubscription;
   String ssid = '';
   String password = '';
-  final String serviceId = 'EFCDAB90-7856-3412-EFCD-AB9078563412';
-  final String characteristicId = '0000FF01-0000-1000-8000-00805F9B34FB';
-  final String characteristicId2 = '0000FF02-0000-1000-8000-00805F9B34FB';
-
-  void requirePermission() async {
-    var isLocationGranted = await Permission.locationWhenInUse.request();
-    print('checkBlePermissions, isLocationGranted=$isLocationGranted');
-
-    var isBleGranted = await Permission.bluetooth.request();
-    print('checkBlePermissions, isBleGranted=$isBleGranted');
-
-    var isBleScanGranted = await Permission.bluetoothScan.request();
-    print('checkBlePermissions, isBleScanGranted=$isBleScanGranted');
-    //
-    var isBleConnectGranted = await Permission.bluetoothConnect.request();
-    print('checkBlePermissions, isBleConnectGranted=$isBleConnectGranted');
-    //
-    var isBleAdvertiseGranted = await Permission.bluetoothAdvertise.request();
-    print('checkBlePermissions, isBleAdvertiseGranted=$isBleAdvertiseGranted');
-
-    checkAndOpenBluetooth();
-  }
+  final String serviceId = 'efcdab90-7856-3412-efcd-ab9078563412';
+  final String characteristicId = '0000ff01-0000-1000-8000-00805f9b34fb';
+  final String characteristicId2 = '0000ff02-0000-1000-8000-00805f9b34fb';
 
   @override
   void initState() {
     super.initState();
-    requirePermission();
+    _scanResultsSubscription = FlutterBluePlus.scanResults.listen((results) {
+      _scanResults = results;
+      print(_scanResults);
+      if (mounted) {
+        setState(() {});
+      }
+    }, onError: (error) {
+      print('Scan Error:$error');
+    });
+    _isScanningSubscription = FlutterBluePlus.isScanning.listen((state) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
     plantId = guid();
+  }
+
+  @override
+  void dispose() {
+    _scanResultsSubscription.cancel();
+    _isScanningSubscription.cancel();
+    super.dispose();
   }
 
   String guid() {
@@ -82,45 +87,33 @@ class _AddplantState extends State<Addplant> {
     return bytes;
   }
 
-  void checkAndOpenBluetooth() async {
-    AvailabilityState state =
-        await UniversalBle.getBluetoothAvailabilityState();
-    if (state == AvailabilityState.poweredOn) {
-      UniversalBle.onScanResult = (bleDevice) {
-        setState(() {
-          devices.add(bleDevice);
-        });
-      };
-      UniversalBle.startScan();
-    } else {
-      showDialog(
-          context: context,
-          builder: (BuildContext context) {
-            return AlertDialog(
-              title: const Text('蓝牙未开启'),
-              content: const Text('请开启蓝牙后再试'),
-              actions: <Widget>[
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('确定'),
-                ),
-              ],
-            );
-          });
-    }
-  }
-
-  void connectDevice(String deviceId) async {
+  void connectDevice(BluetoothDevice device) async {
     try {
-      UniversalBle.stopScan();
-      await UniversalBle.connect(deviceId);
+      var c1;
+      var c2;
+      await device.connect();
+      _services = await device.discoverServices();
+      for (var service in _services) {
+        if (service.serviceUuid.str == serviceId) {
+          for (var c in service.characteristics) {
+            if (c.characteristicUuid.str == characteristicId) {
+              c1 = c;
+            }
+            if (c.characteristicUuid.str == characteristicId2) {
+              c2 = c;
+            }
+          }
+        }
+      }
       Uint8List message = encode('$ssid,$password');
-      UniversalBle.writeValue(deviceId, serviceId, characteristicId, message,
-          BleOutputProperty.withoutResponse);
+      await c1.write(message,
+          withoutResponse: c1.properties.writeWithoutResponse);
+      print("Write: Success");
       sleep(const Duration(seconds: 1));
       message = encode(plantId);
-      UniversalBle.writeValue(deviceId, serviceId, characteristicId2, message,
-          BleOutputProperty.withoutResponse);
+      await c2.write(message,
+          withoutResponse: c2.properties.writeWithoutResponse);
+      print("Write: Success2");
     } catch (e) {
       showToast(context, '连接设备失败$e');
     }
@@ -145,7 +138,7 @@ class _AddplantState extends State<Addplant> {
       return;
     }
 
-    if (devices.length == 0) {
+    if (_scanResults.length == 0) {
       showDialog(
           context: context,
           builder: (BuildContext context) {
@@ -206,6 +199,39 @@ class _AddplantState extends State<Addplant> {
         appBar: AppBar(
           title: const Text('添加植物'),
         ),
+        floatingActionButton: FlutterBluePlus.isScanningNow
+            ? FloatingActionButton(
+                onPressed: () {
+                  FlutterBluePlus.stopScan();
+                },
+                backgroundColor: Colors.red,
+                child: const Text("停止",style: TextStyle(color: Colors.white),),
+              )
+            : FloatingActionButton(
+                onPressed: () async {
+                  try {
+                    _systemDevices = await FlutterBluePlus.systemDevices;
+                    print('dc-----_systemDevices$_systemDevices');
+                  } catch (e) {
+                    print("Stop Scan Error:$e");
+                  }
+                  try {
+                    // android is slow when asking for all advertisements,
+                    // so instead we only ask for 1/8 of them
+                    int divisor = Platform.isAndroid ? 8 : 1;
+                    await FlutterBluePlus.startScan(
+                        timeout: const Duration(seconds: 15),
+                        continuousUpdates: true,
+                        continuousDivisor: divisor);
+                  } catch (e) {
+                    print("Stop Scan Error:$e");
+                  }
+                  if (mounted) {
+                    setState(() {});
+                  }
+                },
+                child: const Text("扫描"),
+              ),
         body: Center(
           child: SingleChildScrollView(
               child: Column(
@@ -279,11 +305,11 @@ class _AddplantState extends State<Addplant> {
                   ],
                 ),
                 child: ListView.builder(
-                    itemCount: devices.length,
+                    itemCount: _scanResults.length,
                     itemBuilder: (BuildContext context, int index) {
                       return Container(
                         margin: const EdgeInsets.only(top: 10),
-                        padding: const EdgeInsets.all(15),
+                        padding: const EdgeInsets.all(5),
                         decoration: const BoxDecoration(
                           borderRadius: BorderRadius.all(Radius.circular(10)),
                           color: Color(0xFFFFFFFF),
@@ -297,7 +323,10 @@ class _AddplantState extends State<Addplant> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(devices[index].name ?? '未知设备'),
+                            Text(_scanResults[index].device.platformName +
+                                '  (' +
+                                _scanResults[index].device.remoteId.toString() +
+                                ')'),
                             ElevatedButton(
                               onPressed: () {
                                 //弹出Wifi输入框
@@ -307,7 +336,7 @@ class _AddplantState extends State<Addplant> {
                                     return AlertDialog(
                                       title: const Text('请输入Wifi信息'),
                                       content: SizedBox(
-                                        height: 110,
+                                        height: 122,
                                         child: Column(
                                           children: [
                                             TextField(
@@ -346,7 +375,7 @@ class _AddplantState extends State<Addplant> {
                                           onPressed: () {
                                             Navigator.pop(context);
                                             connectDevice(
-                                                devices[index].deviceId);
+                                                _scanResults[index].device);
                                           },
                                           child: const Text('确定'),
                                         ),
@@ -355,7 +384,7 @@ class _AddplantState extends State<Addplant> {
                                   },
                                 );
                               },
-                              child: const Text('选择'),
+                              child: const Text('连接'),
                             )
                           ],
                         ),

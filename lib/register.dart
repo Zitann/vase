@@ -64,7 +64,7 @@ class RegisterState extends State<Register> {
         child: Column(
           children: [
             Container(
-              margin: const EdgeInsets.only(top: 150),
+              margin: const EdgeInsets.only(top: 105),
               child: const Image(
                   image: AssetImage('images/icon.png'),
                   width: 100,

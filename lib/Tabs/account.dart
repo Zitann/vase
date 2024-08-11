@@ -18,7 +18,7 @@ class AccountState extends State<Account> {
         child: Column(
           children: [
             Container(
-              margin: const EdgeInsets.only(top: 70),
+              margin: const EdgeInsets.only(top: 58),
               child: const Image(
                   image: AssetImage('images/icon.png'),
                   width: 100,
