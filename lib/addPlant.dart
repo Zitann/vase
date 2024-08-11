@@ -55,6 +55,7 @@ class _AddplantState extends State<Addplant> {
   void dispose() {
     _scanResultsSubscription.cancel();
     _isScanningSubscription.cancel();
+    FlutterBluePlus.stopScan();
     super.dispose();
   }
 
@@ -224,7 +225,7 @@ class _AddplantState extends State<Addplant> {
                         continuousUpdates: true,
                         continuousDivisor: divisor);
                   } catch (e) {
-                    print("Stop Scan Error:$e");
+                    print("Stop jzt Error:$e");
                   }
                   if (mounted) {
                     setState(() {});
