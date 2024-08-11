@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:universal_ble/universal_ble.dart';
 import 'package:vase/common/toast.dart';
 
@@ -26,11 +27,30 @@ class _AddplantState extends State<Addplant> {
   final String characteristicId = '0000FF01-0000-1000-8000-00805F9B34FB';
   final String characteristicId2 = '0000FF02-0000-1000-8000-00805F9B34FB';
 
+  void requirePermission() async {
+    var isLocationGranted = await Permission.locationWhenInUse.request();
+    print('checkBlePermissions, isLocationGranted=$isLocationGranted');
+
+    var isBleGranted = await Permission.bluetooth.request();
+    print('checkBlePermissions, isBleGranted=$isBleGranted');
+
+    var isBleScanGranted = await Permission.bluetoothScan.request();
+    print('checkBlePermissions, isBleScanGranted=$isBleScanGranted');
+    //
+    var isBleConnectGranted = await Permission.bluetoothConnect.request();
+    print('checkBlePermissions, isBleConnectGranted=$isBleConnectGranted');
+    //
+    var isBleAdvertiseGranted = await Permission.bluetoothAdvertise.request();
+    print('checkBlePermissions, isBleAdvertiseGranted=$isBleAdvertiseGranted');
+
+    checkAndOpenBluetooth();
+  }
+
   @override
   void initState() {
     super.initState();
+    requirePermission();
     plantId = guid();
-    checkAndOpenBluetooth();
   }
 
   String guid() {
@@ -183,174 +203,179 @@ class _AddplantState extends State<Addplant> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('添加植物'),
-      ),
-      body: Center(
-        child:SingleChildScrollView(
-          child: Column(
-        children: [
-          Container(
-            margin: const EdgeInsets.only(top: 20, left: 20, right: 20),
-            decoration: const BoxDecoration(
-              borderRadius: BorderRadius.all(Radius.circular(15)),
-              boxShadow: [
-                BoxShadow(
-                    color: Color(0xFFDADFF0),
-                    offset: Offset(0, 5),
-                    blurRadius: 10)
-              ],
-              image: DecorationImage(
-                  image: NetworkImage(
-                      'http://123.60.145.37:5000/plant/show/zijinghua.jpg'),
-                  fit: BoxFit.cover),
-            ),
-            height: 200,
-          ),
-          Container(
-            margin: const EdgeInsets.only(top: 20, left: 20, right: 20),
-            padding: const EdgeInsets.all(15),
-            width: double.infinity,
-            decoration: const BoxDecoration(
-              borderRadius: BorderRadius.all(Radius.circular(10)),
-              color: Color(0xFFF2F3FA),
-              boxShadow: [
-                BoxShadow(
-                    color: Color(0xFFDADFF0),
-                    offset: Offset(0, 5),
-                    blurRadius: 10)
-              ],
-            ),
-            child: Column(
-              children: [
-                TextField(
-                  decoration: InputDecoration(
-                    labelText: '植物名称',
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(20)),
-                  ),
-                  onChanged: (value) => name = value,
+        appBar: AppBar(
+          title: const Text('添加植物'),
+        ),
+        body: Center(
+          child: SingleChildScrollView(
+              child: Column(
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 20, left: 20, right: 20),
+                decoration: const BoxDecoration(
+                  borderRadius: BorderRadius.all(Radius.circular(15)),
+                  boxShadow: [
+                    BoxShadow(
+                        color: Color(0xFFDADFF0),
+                        offset: Offset(0, 5),
+                        blurRadius: 10)
+                  ],
+                  image: DecorationImage(
+                      image: NetworkImage(
+                          'http://123.60.145.37:5000/plant/show/zijinghua.jpg'),
+                      fit: BoxFit.cover),
                 ),
-                const SizedBox(height: 10),
-                TextField(
-                  decoration: InputDecoration(
-                    labelText: '植物描述',
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(20)),
-                  ),
-                  onChanged: (value) => description = value,
+                height: 200,
+              ),
+              Container(
+                margin: const EdgeInsets.only(top: 20, left: 20, right: 20),
+                padding: const EdgeInsets.all(15),
+                width: double.infinity,
+                decoration: const BoxDecoration(
+                  borderRadius: BorderRadius.all(Radius.circular(10)),
+                  color: Color(0xFFF2F3FA),
+                  boxShadow: [
+                    BoxShadow(
+                        color: Color(0xFFDADFF0),
+                        offset: Offset(0, 5),
+                        blurRadius: 10)
+                  ],
                 ),
-              ],
-            ),
-          ),
-          Container(
-            margin: const EdgeInsets.only(top: 20, left: 20, right: 20),
-            padding: const EdgeInsets.all(15),
-            width: double.infinity,
-            height: 200,
-            decoration: const BoxDecoration(
-              borderRadius: BorderRadius.all(Radius.circular(10)),
-              color: Color(0xFFF2F3FA),
-              boxShadow: [
-                BoxShadow(
-                    color: Color(0xFFDADFF0),
-                    offset: Offset(0, 5),
-                    blurRadius: 10)
-              ],
-            ),
-            child: ListView.builder(
-                itemCount: devices.length,
-                itemBuilder: (BuildContext context, int index) {
-                  return Container(
-                    margin: const EdgeInsets.only(top: 10),
-                    padding: const EdgeInsets.all(15),
-                    decoration: const BoxDecoration(
-                      borderRadius: BorderRadius.all(Radius.circular(10)),
-                      color: Color(0xFFFFFFFF),
-                      boxShadow: [
-                        BoxShadow(
-                            color: Color(0xFFDADFF0),
-                            offset: Offset(0, 5),
-                            blurRadius: 10)
-                      ],
+                child: Column(
+                  children: [
+                    TextField(
+                      decoration: InputDecoration(
+                        labelText: '植物名称',
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(20)),
+                      ),
+                      onChanged: (value) => name = value,
                     ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(devices[index].name ?? '未知设备'),
-                        ElevatedButton(
-                          onPressed: () {
-                            //弹出Wifi输入框
-                            showDialog(
-                              context: context,
-                              builder: (BuildContext context) {
-                                return AlertDialog(
-                                  title: const Text('请输入Wifi信息'),
-                                  content: SizedBox(
-                                    height: 110,
-                                    child: Column(
-                                      children: [
-                                        TextField(
-                                          decoration: InputDecoration(
-                                            labelText: 'Wifi名称',
-                                            border: OutlineInputBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(20)),
-                                          ),
-                                          onChanged: (value) => ssid = value,
+                    const SizedBox(height: 10),
+                    TextField(
+                      decoration: InputDecoration(
+                        labelText: '植物描述',
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(20)),
+                      ),
+                      onChanged: (value) => description = value,
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                margin: const EdgeInsets.only(top: 20, left: 20, right: 20),
+                padding: const EdgeInsets.all(15),
+                width: double.infinity,
+                height: 200,
+                decoration: const BoxDecoration(
+                  borderRadius: BorderRadius.all(Radius.circular(10)),
+                  color: Color(0xFFF2F3FA),
+                  boxShadow: [
+                    BoxShadow(
+                        color: Color(0xFFDADFF0),
+                        offset: Offset(0, 5),
+                        blurRadius: 10)
+                  ],
+                ),
+                child: ListView.builder(
+                    itemCount: devices.length,
+                    itemBuilder: (BuildContext context, int index) {
+                      return Container(
+                        margin: const EdgeInsets.only(top: 10),
+                        padding: const EdgeInsets.all(15),
+                        decoration: const BoxDecoration(
+                          borderRadius: BorderRadius.all(Radius.circular(10)),
+                          color: Color(0xFFFFFFFF),
+                          boxShadow: [
+                            BoxShadow(
+                                color: Color(0xFFDADFF0),
+                                offset: Offset(0, 5),
+                                blurRadius: 10)
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(devices[index].name ?? '未知设备'),
+                            ElevatedButton(
+                              onPressed: () {
+                                //弹出Wifi输入框
+                                showDialog(
+                                  context: context,
+                                  builder: (BuildContext context) {
+                                    return AlertDialog(
+                                      title: const Text('请输入Wifi信息'),
+                                      content: SizedBox(
+                                        height: 110,
+                                        child: Column(
+                                          children: [
+                                            TextField(
+                                              decoration: InputDecoration(
+                                                labelText: 'Wifi名称',
+                                                border: OutlineInputBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            20)),
+                                              ),
+                                              onChanged: (value) =>
+                                                  ssid = value,
+                                            ),
+                                            const SizedBox(height: 10),
+                                            TextField(
+                                              decoration: InputDecoration(
+                                                labelText: 'Wifi密码',
+                                                border: OutlineInputBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            20)),
+                                              ),
+                                              onChanged: (value) =>
+                                                  password = value,
+                                            ),
+                                          ],
                                         ),
-                                        const SizedBox(height: 10),
-                                        TextField(
-                                          decoration: InputDecoration(
-                                            labelText: 'Wifi密码',
-                                            border: OutlineInputBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(20)),
-                                          ),
-                                          onChanged: (value) =>
-                                              password = value,
+                                      ),
+                                      actions: <Widget>[
+                                        TextButton(
+                                          onPressed: () =>
+                                              Navigator.pop(context),
+                                          child: const Text('取消'),
+                                        ),
+                                        TextButton(
+                                          onPressed: () {
+                                            Navigator.pop(context);
+                                            connectDevice(
+                                                devices[index].deviceId);
+                                          },
+                                          child: const Text('确定'),
                                         ),
                                       ],
-                                    ),
-                                  ),
-                                  actions: <Widget>[
-                                    TextButton(
-                                      onPressed: () => Navigator.pop(context),
-                                      child: const Text('取消'),
-                                    ),
-                                    TextButton(
-                                      onPressed: () {
-                                        Navigator.pop(context);
-                                        connectDevice(devices[index].deviceId);
-                                      },
-                                      child: const Text('确定'),
-                                    ),
-                                  ],
+                                    );
+                                  },
                                 );
                               },
-                            );
-                          },
-                          child: const Text('选择'),
-                        )
-                      ],
-                    ),
-                  );
-                }),
-          ),
-          Container(
-            margin: const EdgeInsets.only(top: 20,bottom: 20),
-            width: 200,
-            height: 50,
-            child: ElevatedButton(
-                onPressed: addPlant,
-                child: const Text('添加植物',
-                    style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.normal,
-                        decoration: TextDecoration.none))),
-          )
-        ],
-      )),
-    ));
+                              child: const Text('选择'),
+                            )
+                          ],
+                        ),
+                      );
+                    }),
+              ),
+              Container(
+                margin: const EdgeInsets.only(top: 20, bottom: 20),
+                width: 200,
+                height: 50,
+                child: ElevatedButton(
+                    onPressed: addPlant,
+                    child: const Text('添加植物',
+                        style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.normal,
+                            decoration: TextDecoration.none))),
+              )
+            ],
+          )),
+        ));
   }
 }
