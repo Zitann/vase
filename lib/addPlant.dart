@@ -7,6 +7,8 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:scan/scan.dart';
 import 'package:vase/common/toast.dart';
 
 class Addplant extends StatefulWidget {
@@ -22,7 +24,6 @@ class _AddplantState extends State<Addplant> {
   String plantId = '';
   List<BluetoothDevice> _systemDevices = [];
   List<ScanResult> _scanResults = [];
-  List<BluetoothService> _services = [];
   late StreamSubscription<List<ScanResult>> _scanResultsSubscription;
   late StreamSubscription<bool> _isScanningSubscription;
   String ssid = '';
@@ -30,6 +31,11 @@ class _AddplantState extends State<Addplant> {
   final String serviceId = 'efcdab90-7856-3412-efcd-ab9078563412';
   final String characteristicId = '0000ff01-0000-1000-8000-00805f9b34fb';
   final String characteristicId2 = '0000ff02-0000-1000-8000-00805f9b34fb';
+  ScanController controller = ScanController();
+  String qrcode = '';
+  bool isScan = false;
+  bool wifi = false;
+  String mac = '';
 
   @override
   void initState() {
@@ -58,24 +64,19 @@ class _AddplantState extends State<Addplant> {
     _scanResultsSubscription.cancel();
     _isScanningSubscription.cancel();
     FlutterBluePlus.stopScan();
+    controller.pause();
     super.dispose();
   }
 
   String guid() {
     // 生成uuid xxxxxxx-xxxxxxx
-    String s = '';
+    var s = '';
     for (var i = 0; i < 7; i++) {
-      s += ((1 + Random().nextDouble()) * 0x10000)
-          .toInt()
-          .toRadixString(16)
-          .substring(1);
+      s += (Random().nextInt(16).toRadixString(16));
     }
     s += '-';
     for (var i = 0; i < 7; i++) {
-      s += ((1 + Random().nextDouble()) * 0x10000)
-          .toInt()
-          .toRadixString(16)
-          .substring(1);
+      s += (Random().nextInt(16).toRadixString(16));
     }
     return s;
   }
@@ -92,22 +93,29 @@ class _AddplantState extends State<Addplant> {
 
   void connectDevice(BluetoothDevice device) async {
     try {
-      var c1;
-      var c2;
+      print(device.remoteId.str);
+      BluetoothCharacteristic c1 = BluetoothCharacteristic(
+          remoteId: device.remoteId,
+          serviceUuid: Guid(serviceId),
+          characteristicUuid: Guid(characteristicId));
+      BluetoothCharacteristic c2 = BluetoothCharacteristic(
+          remoteId: device.remoteId,
+          serviceUuid: Guid(serviceId),
+          characteristicUuid: Guid(characteristicId2));
       await device.connect();
-      _services = await device.discoverServices();
-      for (var service in _services) {
-        if (service.serviceUuid.str == serviceId) {
-          for (var c in service.characteristics) {
-            if (c.characteristicUuid.str == characteristicId) {
-              c1 = c;
-            }
-            if (c.characteristicUuid.str == characteristicId2) {
-              c2 = c;
-            }
-          }
-        }
-      }
+      // _services = await device.discoverServices();
+      // for (var service in _services) {
+      //   if (service.serviceUuid.str == serviceId) {
+      //     for (var c in service.characteristics) {
+      //       if (c.characteristicUuid.str == characteristicId) {
+      //         c1 = c;
+      //       }
+      //       if (c.characteristicUuid.str == characteristicId2) {
+      //         c2 = c;
+      //       }
+      //     }
+      //   }
+      // }
       Uint8List message = encode('$ssid,$password');
       await c1.write(message,
           withoutResponse: c1.properties.writeWithoutResponse);
@@ -118,7 +126,7 @@ class _AddplantState extends State<Addplant> {
           withoutResponse: c2.properties.writeWithoutResponse);
       print("Write: Success2");
     } catch (e) {
-      showToast(context, '连接设备失败$e');
+      // showToast(context, '连接设备失败$e');
     }
   }
 
@@ -202,45 +210,12 @@ class _AddplantState extends State<Addplant> {
         appBar: AppBar(
           title: const Text('添加植物'),
         ),
-        floatingActionButton: FlutterBluePlus.isScanningNow
-            ? FloatingActionButton(
-                onPressed: () {
-                  FlutterBluePlus.stopScan();
-                },
-                backgroundColor: Colors.red,
-                child: const Text("停止",style: TextStyle(color: Colors.white),),
-              )
-            : FloatingActionButton(
-                onPressed: () async {
-                  try {
-                    _systemDevices = await FlutterBluePlus.systemDevices;
-                    print('dc-----_systemDevices$_systemDevices');
-                  } catch (e) {
-                    print("Stop Scan Error:$e");
-                  }
-                  try {
-                    // android is slow when asking for all advertisements,
-                    // so instead we only ask for 1/8 of them
-                    int divisor = Platform.isAndroid ? 8 : 1;
-                    await FlutterBluePlus.startScan(
-                        timeout: const Duration(seconds: 15),
-                        continuousUpdates: true,
-                        continuousDivisor: divisor);
-                  } catch (e) {
-                    print("Stop jzt Error:$e");
-                  }
-                  if (mounted) {
-                    setState(() {});
-                  }
-                },
-                child: const Text("扫描"),
-              ),
         body: Center(
           child: SingleChildScrollView(
               child: Column(
             children: [
               Container(
-                margin: const EdgeInsets.only(top: 20, left: 20, right: 20),
+                margin: const EdgeInsets.only(top: 10, left: 20, right: 20),
                 decoration: const BoxDecoration(
                   borderRadius: BorderRadius.all(Radius.circular(15)),
                   boxShadow: [
@@ -307,105 +282,206 @@ class _AddplantState extends State<Addplant> {
                         blurRadius: 10)
                   ],
                 ),
-                child: ListView.builder(
-                    itemCount: _scanResults.length,
-                    itemBuilder: (BuildContext context, int index) {
-                      return Container(
-                        margin: const EdgeInsets.only(top: 10),
-                        padding: const EdgeInsets.all(5),
-                        decoration: const BoxDecoration(
-                          borderRadius: BorderRadius.all(Radius.circular(10)),
-                          color: Color(0xFFFFFFFF),
-                          boxShadow: [
-                            BoxShadow(
-                                color: Color(0xFFDADFF0),
-                                offset: Offset(0, 5),
-                                blurRadius: 10)
-                          ],
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(_scanResults[index].device.platformName +
-                                '  (' +
-                                _scanResults[index].device.remoteId.toString() +
-                                ')'),
-                            ElevatedButton(
-                              onPressed: () {
-                                //弹出Wifi输入框
-                                showDialog(
-                                  context: context,
-                                  builder: (BuildContext context) {
-                                    return AlertDialog(
-                                      title: const Text('请输入Wifi信息'),
-                                      content: SizedBox(
-                                        height: 122,
-                                        child: Column(
-                                          children: [
-                                            TextField(
-                                              decoration: InputDecoration(
-                                                labelText: 'Wifi名称',
-                                                border: OutlineInputBorder(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            20)),
-                                              ),
-                                              onChanged: (value) =>
-                                                  ssid = value,
-                                            ),
-                                            const SizedBox(height: 10),
-                                            TextField(
-                                              decoration: InputDecoration(
-                                                labelText: 'Wifi密码',
-                                                border: OutlineInputBorder(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            20)),
-                                              ),
-                                              onChanged: (value) =>
-                                                  password = value,
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      actions: <Widget>[
-                                        TextButton(
-                                          onPressed: () =>
-                                              Navigator.pop(context),
-                                          child: const Text('取消'),
-                                        ),
-                                        TextButton(
-                                          onPressed: () {
-                                            Navigator.pop(context);
-                                            connectDevice(
-                                                _scanResults[index].device);
-                                          },
-                                          child: const Text('确定'),
-                                        ),
-                                      ],
-                                    );
+                child: wifi
+                    ? Column(
+                        children: [
+                          TextField(
+                            decoration: InputDecoration(
+                              labelText: 'Wifi名称',
+                              border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(20)),
+                            ),
+                            onChanged: (value) => ssid = value,
+                          ),
+                          const SizedBox(height: 10),
+                          TextField(
+                            decoration: InputDecoration(
+                              labelText: 'Wifi密码',
+                              border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(20)),
+                            ),
+                            onChanged: (value) => password = value,
+                          ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceAround,
+                            children: [
+                              ElevatedButton(
+                                  onPressed: () {
+                                    wifi = false;
+                                    isScan = false;
+                                    _scanResults = [];
+                                    setState(() {});
                                   },
-                                );
-                              },
-                              child: const Text('连接'),
-                            )
-                          ],
-                        ),
-                      );
-                    }),
+                                  child: const Text('取消')),
+                              ElevatedButton(
+                                  onPressed: () {
+                                    wifi = false;
+                                    isScan = false;
+                                    _scanResults = [];
+                                    setState(() {});
+                                    connectDevice(BluetoothDevice(
+                                        remoteId: DeviceIdentifier(mac)));
+                                  },
+                                  child: const Text('确认')),
+                            ],
+                          )
+                        ],
+                      )
+                    : isScan
+                        ? ScanView(
+                            controller: controller,
+// custom scan area, if set to 1.0, will scan full area
+                            scanAreaScale: .7,
+                            scanLineColor: Colors.green.shade400,
+                            onCapture: (data) {
+                              wifi = true;
+                              isScan = false;
+                              setState(() {});
+                              controller.pause();
+                              data = data.replaceAll(RegExp(r'MAC '), '');
+                              print('dc-----data$data');
+                              mac = data;
+                            },
+                          )
+                        : ListView.builder(
+                            itemCount: _scanResults.length,
+                            itemBuilder: (BuildContext context, int index) {
+                              return Container(
+                                margin: const EdgeInsets.only(top: 10),
+                                padding: const EdgeInsets.all(5),
+                                decoration: const BoxDecoration(
+                                  borderRadius:
+                                      BorderRadius.all(Radius.circular(10)),
+                                  color: Color(0xFFFFFFFF),
+                                  boxShadow: [
+                                    BoxShadow(
+                                        color: Color(0xFFDADFF0),
+                                        offset: Offset(0, 5),
+                                        blurRadius: 10)
+                                  ],
+                                ),
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          _scanResults[index]
+                                              .device
+                                              .platformName,
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.bold),
+                                        ),
+                                        Text(
+                                            '(${_scanResults[index].device.remoteId})')
+                                      ],
+                                    ),
+                                    ElevatedButton(
+                                      onPressed: () {
+                                        wifi = true;
+                                        isScan = false;
+                                        setState(() {});
+                                        mac = _scanResults[index]
+                                            .device
+                                            .remoteId
+                                            .str;
+                                      },
+                                      child: const Text('连接'),
+                                    )
+                                  ],
+                                ),
+                              );
+                            }),
               ),
               Container(
-                margin: const EdgeInsets.only(top: 20, bottom: 20),
-                width: 200,
-                height: 50,
-                child: ElevatedButton(
-                    onPressed: addPlant,
-                    child: const Text('添加植物',
-                        style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.normal,
-                            decoration: TextDecoration.none))),
-              )
+                  margin: const EdgeInsets.only(top: 20, left: 20, right: 20),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      isScan
+                          ? FloatingActionButton(
+                              onPressed: () {
+                                wifi = false;
+                                isScan = false;
+                                _scanResults = [];
+                                controller.pause();
+                                setState(() {});
+                              },
+                              backgroundColor: Colors.red,
+                              child: const Icon(Icons.qr_code_scanner,
+                                  color: Colors.white),
+                            )
+                          : FloatingActionButton(
+                              onPressed: () async {
+                                await Permission.camera.request();
+                                wifi = false;
+                                isScan = true;
+                                _scanResults = [];
+                                controller.resume();
+                                setState(() {});
+                              },
+                              child: const Icon(Icons.qr_code_scanner),
+                            ),
+                      Container(
+                        margin: const EdgeInsets.only(top: 20, bottom: 20),
+                        width: 200,
+                        height: 50,
+                        child: ElevatedButton(
+                            onPressed: addPlant,
+                            child: const Text('添加植物',
+                                style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.normal,
+                                    decoration: TextDecoration.none))),
+                      ),
+                      FlutterBluePlus.isScanningNow
+                          ? FloatingActionButton(
+                              onPressed: () {
+                                wifi = false;
+                                isScan = false;
+                                controller.pause();
+                                setState(() {});
+                                FlutterBluePlus.stopScan();
+                              },
+                              backgroundColor: Colors.red,
+                              child: const Text(
+                                "停止",
+                                style: TextStyle(color: Colors.white),
+                              ),
+                            )
+                          : FloatingActionButton(
+                              onPressed: () async {
+                                wifi = false;
+                                isScan = false;
+                                controller.pause();
+                                setState(() {});
+                                try {
+                                  _systemDevices =
+                                      await FlutterBluePlus.systemDevices;
+                                  print('dc-----_systemDevices$_systemDevices');
+                                } catch (e) {
+                                  print("Stop Scan Error:$e");
+                                }
+                                try {
+                                  int divisor = Platform.isAndroid ? 8 : 1;
+                                  await FlutterBluePlus.startScan(
+                                      timeout: const Duration(seconds: 15),
+                                      continuousUpdates: true,
+                                      continuousDivisor: divisor);
+                                } catch (e) {
+                                  print("Stop jzt Error:$e");
+                                }
+                                if (mounted) {
+                                  setState(() {});
+                                }
+                              },
+                              child: const Text("扫描"),
+                            ),
+                    ],
+                  ))
             ],
           )),
         ));
