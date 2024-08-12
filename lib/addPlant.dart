@@ -48,6 +48,8 @@ class _AddplantState extends State<Addplant> {
         setState(() {});
       }
     });
+    FlutterBluePlus.turnOn();
+
     plantId = guid();
   }
 
