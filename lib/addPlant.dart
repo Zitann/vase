@@ -24,13 +24,11 @@ class _AddplantState extends State<Addplant> {
   String plantId = '';
   List<BluetoothDevice> _systemDevices = [];
   List<ScanResult> _scanResults = [];
+  List<BluetoothService> _services = [];
   late StreamSubscription<List<ScanResult>> _scanResultsSubscription;
   late StreamSubscription<bool> _isScanningSubscription;
   String ssid = '';
   String password = '';
-  final String serviceId = 'efcdab90-7856-3412-efcd-ab9078563412';
-  final String characteristicId = '0000ff01-0000-1000-8000-00805f9b34fb';
-  final String characteristicId2 = '0000ff02-0000-1000-8000-00805f9b34fb';
   ScanController controller = ScanController();
   String qrcode = '';
   bool isScan = false;
@@ -82,51 +80,31 @@ class _AddplantState extends State<Addplant> {
   }
 
   Uint8List encode(String s) {
-    var encodedString = utf8.encode(s);
-    var encodedLength = encodedString.length;
-    var data = ByteData(encodedLength + 4);
-    data.setUint32(0, encodedLength, Endian.big);
-    var bytes = data.buffer.asUint8List();
-    bytes.setRange(4, encodedLength + 4, encodedString);
+    List<int> list = utf8.encode(s);
+    Uint8List bytes = Uint8List.fromList(list);
     return bytes;
   }
 
   void connectDevice(BluetoothDevice device) async {
     try {
       print(device.remoteId.str);
-      BluetoothCharacteristic c1 = BluetoothCharacteristic(
-          remoteId: device.remoteId,
-          serviceUuid: Guid(serviceId),
-          characteristicUuid: Guid(characteristicId));
-      BluetoothCharacteristic c2 = BluetoothCharacteristic(
-          remoteId: device.remoteId,
-          serviceUuid: Guid(serviceId),
-          characteristicUuid: Guid(characteristicId2));
+      BluetoothCharacteristic c1;
+      BluetoothCharacteristic c2;
       await device.connect();
-      // _services = await device.discoverServices();
-      // for (var service in _services) {
-      //   if (service.serviceUuid.str == serviceId) {
-      //     for (var c in service.characteristics) {
-      //       if (c.characteristicUuid.str == characteristicId) {
-      //         c1 = c;
-      //       }
-      //       if (c.characteristicUuid.str == characteristicId2) {
-      //         c2 = c;
-      //       }
-      //     }
-      //   }
-      // }
-      Uint8List message = encode('$ssid,$password');
-      await c1.write(message,
-          withoutResponse: c1.properties.writeWithoutResponse);
-      print("Write: Success");
-      sleep(const Duration(seconds: 1));
-      message = encode(plantId);
+      _services = await device.discoverServices();
+      c1 = _services[2].characteristics[0];
+      c2 = _services[2].characteristics[1];
+      Uint8List message = encode(plantId);
       await c2.write(message,
           withoutResponse: c2.properties.writeWithoutResponse);
-      print("Write: Success2");
+      sleep(const Duration(seconds: 1));
+      message = encode('$ssid,$password');
+      await c1.write(message,
+          withoutResponse: c1.properties.writeWithoutResponse);
+      showToast(context, '配网成功');
     } catch (e) {
-      // showToast(context, '连接设备失败$e');
+      showToast(context, '$e');
+      print(e);
     }
   }
 
@@ -149,7 +127,7 @@ class _AddplantState extends State<Addplant> {
       return;
     }
 
-    if (_scanResults.length == 0) {
+    if (ssid == '' || password == '') {
       showDialog(
           context: context,
           builder: (BuildContext context) {
@@ -330,9 +308,8 @@ class _AddplantState extends State<Addplant> {
                     : isScan
                         ? ScanView(
                             controller: controller,
-// custom scan area, if set to 1.0, will scan full area
                             scanAreaScale: .7,
-                            scanLineColor: Colors.green.shade400,
+                            scanLineColor: Colors.blue.shade400,
                             onCapture: (data) {
                               wifi = true;
                               isScan = false;
