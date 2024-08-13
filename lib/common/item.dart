@@ -74,6 +74,26 @@ class Item extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
+            id[0] == '0'? Row(children: [const Icon(
+              Icons.forest,
+              color: Colors.green,
+              size: 20,
+            ),
+            const Text(' 集群 ',
+              style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.red,
+                  decoration: TextDecoration.none),
+            ),
+            Text(
+              name,
+              style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.normal,
+                  color: Colors.black,
+                  decoration: TextDecoration.none),
+            ),],):
             Text(
               name,
               style: const TextStyle(

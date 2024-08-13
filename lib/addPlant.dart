@@ -34,6 +34,7 @@ class _AddplantState extends State<Addplant> {
   bool isScan = false;
   bool wifi = false;
   String mac = '';
+  bool isUnit = false;
 
   @override
   void initState() {
@@ -69,7 +70,13 @@ class _AddplantState extends State<Addplant> {
   String guid() {
     // 生成uuid xxxxxxx-xxxxxxx
     var s = '';
-    for (var i = 0; i < 7; i++) {
+    if (isUnit) {
+      s += '0';
+    } else {
+      // 不能是0
+      s += (Random().nextInt(15) + 1).toRadixString(16);
+    }
+    for (var i = 0; i < 6; i++) {
       s += (Random().nextInt(16).toRadixString(16));
     }
     s += '-';
@@ -208,6 +215,28 @@ class _AddplantState extends State<Addplant> {
                       fit: BoxFit.cover),
                 ),
                 height: 200,
+                child: Row(
+                  children: [Container(
+                    margin: EdgeInsets.only(top: 140,left: 20),
+                    width: 80,
+                    height: 30,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFF2F3FA),
+                      borderRadius: BorderRadius.all(Radius.circular(15)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Checkbox(value: isUnit, onChanged: (value) {
+                          isUnit = value!;
+                          plantId = guid();
+                          setState(() {});
+                        }),
+                        const Text('集群')
+                      ],
+                    ),
+                  ),]
+                ),
               ),
               Container(
                 margin: const EdgeInsets.only(top: 20, left: 20, right: 20),
