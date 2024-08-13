@@ -218,14 +218,14 @@ class _AddplantState extends State<Addplant> {
                 child: Row(
                   children: [Container(
                     margin: EdgeInsets.only(top: 140,left: 20),
-                    width: 80,
+                    width: 90,
                     height: 30,
                     decoration: const BoxDecoration(
                       color: Color(0xFFF2F3FA),
                       borderRadius: BorderRadius.all(Radius.circular(15)),
                     ),
                     child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisAlignment: MainAxisAlignment.start,
                       children: [
                         Checkbox(value: isUnit, onChanged: (value) {
                           isUnit = value!;
